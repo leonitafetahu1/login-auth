@@ -1,0 +1,101 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: zitadel
+      POSTGRES_DB: zitadel
+    ports:
+      - "5432:5432"
+    volumes:
+      - zitadel-db:/var/lib/postgresql/data
+    networks:
+      - zitadel
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zitadel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    restart: unless-stopped
+    command: 'start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode disabled'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ZITADEL_DATABASE_POSTGRES_HOST: db
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: zitadel
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      ZITADEL_EXTERNALDOMAIN: localhost
+      ZITADEL_EXTERNALPORT: 8080
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_TLS_ENABLED: "false"
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: "true"
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: "http://localhost:3000"
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: "http://localhost:3000/loginname"
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: "http://localhost:3000/logout"
+      ZITADEL_FIRSTINSTANCE_ORG_NAME: MyOrg
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: admin
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: Password1!
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: zitadel-admin-sa
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: Admin Service Account
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_PATPATH: /machinekey/zitadel-admin-sa.token
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /machinekey/login-client.token
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Login Client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_GRANTS_0_PROJECTID: "ZITADEL"
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_GRANTS_0_ROLES_0: "ORG_OWNER"
+      ZITADEL_DEFAULTINSTANCE_LOGINSETTINGS_ALLOWUSERNAMEPASSWORD: "true"
+      ZITADEL_DEFAULTINSTANCE_LOGINSETTINGS_MULTIFACTOR_FORCEMFA: "false"
+      ZITADEL_DEFAULTINSTANCE_SESSIONLIFETIME: "24h"
+      ZITADEL_DEFAULTINSTANCE_SESSIONIDLELIFETIME: "12h"
+      ZITADEL_DEFAULTINSTANCE_ACCESSTOKENLIFETIME: "12h"
+      ZITADEL_DEFAULTINSTANCE_IDTOKENLIFETIME: "12h"
+      ZITADEL_DEFAULTINSTANCE_REFRESHTOKENLIFETIME: "720h"
+      ZITADEL_DEFAULTINSTANCE_SECURECOOKIE: "false"
+      ZITADEL_COOKIE_MAXAGE: "86400"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./machinekey:/machinekey
+    networks:
+      - zitadel
+
+  login:
+    build:
+      context: ./apps/login
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ZITADEL_API_URL: http://zitadel:8080
+      ZITADEL_SERVICE_USER_TOKEN: ${ZITADEL_SERVICE_USER_TOKEN}
+      CUSTOM_REQUEST_HEADERS: Host:localhost:8080
+      NEXT_PUBLIC_FOS_URL: ${NEXT_PUBLIC_FOS_URL}
+      NEXT_PUBLIC_APP2_URL: ${NEXT_PUBLIC_APP2_URL}
+      NEXT_PUBLIC_BASE_PATH: ""
+      EMAIL_VERIFICATION: "false"
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - zitadel
+    networks:
+      - zitadel
+
+volumes:
+  zitadel-db:
+
+networks:
+  zitadel:

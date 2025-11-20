@@ -107,7 +107,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
               loginSettings={contextLoginSettings}
               suffix={suffix}
               submit={submit}
-              allowRegister={!!loginSettings?.allowRegister}
+              allowRegister={false}
             ></UsernameForm>
           </div>
           {loginSettings?.allowExternalIdp && !!identityProviders?.length && (

@@ -50,21 +50,33 @@ export async function isSessionValid({ serviceUrl, session }: { serviceUrl: stri
   });
 
   const authMethods = authMethodTypes.authMethodTypes;
-  if (authMethods && authMethods.length > 0) {
+  const mfaRelevantMethods =
+    authMethods?.filter((method) =>
+      [
+        AuthenticationMethodType.TOTP,
+        AuthenticationMethodType.OTP_EMAIL,
+        AuthenticationMethodType.OTP_SMS,
+        AuthenticationMethodType.U2F,
+      ].includes(method),
+    ) ?? [];
+
+  if (mfaRelevantMethods.length > 0) {
     // Check if any of the configured authentication methods have been verified
-    const totpValid = authMethods.includes(AuthenticationMethodType.TOTP) && !!session.factors.totp?.verifiedAt;
-    const otpEmailValid = authMethods.includes(AuthenticationMethodType.OTP_EMAIL) && !!session.factors.otpEmail?.verifiedAt;
-    const otpSmsValid = authMethods.includes(AuthenticationMethodType.OTP_SMS) && !!session.factors.otpSms?.verifiedAt;
-    const u2fValid = authMethods.includes(AuthenticationMethodType.U2F) && !!session.factors.webAuthN?.verifiedAt;
-    
+    const totpValid = mfaRelevantMethods.includes(AuthenticationMethodType.TOTP) && !!session.factors.totp?.verifiedAt;
+    const otpEmailValid =
+      mfaRelevantMethods.includes(AuthenticationMethodType.OTP_EMAIL) && !!session.factors.otpEmail?.verifiedAt;
+    const otpSmsValid =
+      mfaRelevantMethods.includes(AuthenticationMethodType.OTP_SMS) && !!session.factors.otpSms?.verifiedAt;
+    const u2fValid = mfaRelevantMethods.includes(AuthenticationMethodType.U2F) && !!session.factors.webAuthN?.verifiedAt;
+
     mfaValid = totpValid || otpEmailValid || otpSmsValid || u2fValid;
-    
+
     if (!mfaValid) {
-      console.warn("Session has no valid MFA factor. Configured methods:", authMethods, "Session factors:", {
+      console.warn("Session has no valid MFA factor. Configured methods:", mfaRelevantMethods, "Session factors:", {
         totp: session.factors.totp?.verifiedAt,
         otpEmail: session.factors.otpEmail?.verifiedAt,
         otpSms: session.factors.otpSms?.verifiedAt,
-        webAuthN: session.factors.webAuthN?.verifiedAt
+        webAuthN: session.factors.webAuthN?.verifiedAt,
       });
     }
   } else {

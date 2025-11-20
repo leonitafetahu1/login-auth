@@ -8,4 +8,12 @@ if [ -n "${ZITADEL_SERVICE_USER_TOKEN_FILE}" ] && [ -f "${ZITADEL_SERVICE_USER_T
   export ZITADEL_SERVICE_USER_TOKEN=$(cat "${ZITADEL_SERVICE_USER_TOKEN_FILE}")
 fi
 
-exec node /runtime/apps/login/server.js
+if [ -f "/runtime/apps/login/server.js" ]; then
+  exec node /runtime/apps/login/server.js
+elif [ -f "/runtime/server.js" ]; then
+  exec node /runtime/server.js
+else
+  echo "Could not find server.js in /runtime or /runtime/apps/login"
+  ls -R /runtime
+  exit 1
+fi

@@ -11,20 +11,16 @@ export const config = {
     "/oidc/:path*",
     "/idps/callback/:path*",
     "/saml/:path*",
+    "/ui/v2/login/:path*",
     "/:path*",
   ],
 };
 
-async function loadSecuritySettings(
-  request: NextRequest,
-): Promise<SecuritySettings | null> {
+async function loadSecuritySettings(request: NextRequest): Promise<SecuritySettings | null> {
   const securityResponse = await fetch(`${request.nextUrl.origin}/security`);
 
   if (!securityResponse.ok) {
-    console.error(
-      "Failed to fetch security settings:",
-      securityResponse.statusText,
-    );
+    console.error("Failed to fetch security settings:", securityResponse.statusText);
     return null;
   }
 
@@ -39,6 +35,20 @@ async function loadSecuritySettings(
 }
 
 export async function middleware(request: NextRequest) {
+  // Redirect /ui/v2/login/* to /* to handle Zitadel redirects and update browser URL
+  const pathname = request.nextUrl.pathname;
+  if (pathname.startsWith("/ui/v2/login/") || pathname === "/ui/v2/login") {
+    let newPath = pathname.replace("/ui/v2/login", "") || "/";
+    // Ensure path starts with /
+    if (!newPath.startsWith("/")) {
+      newPath = "/" + newPath;
+    }
+    // Preserve all query parameters
+    const newUrl = new URL(request.url);
+    newUrl.pathname = newPath;
+    return NextResponse.redirect(newUrl);
+  }
+
   // Root redirect guard: decide / → /signedin or /loginname before any proxy logic
   if (request.nextUrl.pathname === "/") {
     const hasSessions = request.cookies.get("sessions")?.value;
